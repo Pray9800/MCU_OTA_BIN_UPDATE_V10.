@@ -145,6 +145,22 @@ def main():
         print(f"!! 固件 {size} 字节超过下载区上限 {MAX_SIZE} 字节")
         sys.exit(1)
 
+    # ---- 镜像体检: 复位向量必须落在 APP 区, 否则拒绝打包 ----
+    # 2026-08-26 台车事故根因: 误把按 0x08000000 链接的标准版固件打包进去,
+    # 烧入后 Bootloader 跳到 0x08003805 (Bootloader 区中间) 直接死机。
+    # 此检查确保这类错误链接的 bin 根本打不出包。
+    sp, reset = struct.unpack_from("<II", bin_data, 0)
+    APP_BASE, APP_END = 0x08008000, 0x08044000  # APP 区 240KB
+    if not (APP_BASE <= reset < APP_END):
+        print(f"!! 拒绝打包: 复位向量 0x{reset:08X} 不在 APP 区 [0x08008000, 0x08043FFF]")
+        print("   这是按 0x08000000 链接的固件(标准版/CE/Bootloader/旧构建), 烧进去必死机。")
+        print("   正确输入: JT004-ROBOTCART-STM32-OTAversion\\build\\Debug\\ 下的 bin")
+        sys.exit(1)
+    if not (0x20000000 <= sp <= 0x20010000):
+        print(f"!! 拒绝打包: 栈顶指针 0x{sp:08X} 不在 64KB RAM 范围内")
+        sys.exit(1)
+    print(f"镜像体检: 栈顶 0x{sp:08X} / 复位向量 0x{reset:08X} 位于 APP 区 [OK]")
+
     crc = crc16_modbus(bin_data)
 
     # 16字节包头: 与 pack(1) 的 OTA_Header_t 逐字节一致

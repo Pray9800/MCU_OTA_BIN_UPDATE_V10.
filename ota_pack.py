@@ -19,7 +19,7 @@ JT004 OTA 固件打包脚本 (M1)
     offset 16 : bin 原文
 
 CRC16 算法与 bsp_crc.c 的 CRC16_Modbus 完全一致:
-    多项式 0xA001 (0x8005反转), 初值 0xFFFF, 无异或输出
+    多项式 0xA001 (0x8005反转), 初值 0xFFFF, 无异或输出  常规CRC
 """
 import argparse
 import struct

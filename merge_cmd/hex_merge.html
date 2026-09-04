@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JT004 HEX 合并工具</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 30px 20px;
+}
+.container {
+  width: 100%;
+  max-width: 680px;
+  background: #16213e;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+h1 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 25px;
+  color: #00d4ff;
+  letter-spacing: 2px;
+}
+.section {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 16px;
+  border: 1px solid #1a1a4e;
+}
+.section-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #00d4ff;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  background: #00d4ff;
+  border-radius: 2px;
+}
+.file-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.file-row input[type="text"] {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1a1a3e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+}
+.file-row input[type="text"]:focus {
+  border-color: #00d4ff;
+}
+.file-row input[type="text"]:read-only {
+  cursor: default;
+}
+.btn-browse {
+  padding: 8px 16px;
+  background: #0f3460;
+  border: 1px solid #00d4ff;
+  border-radius: 6px;
+  color: #00d4ff;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-browse:hover {
+  background: #00d4ff;
+  color: #16213e;
+}
+.file-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+  font-family: "Consolas", monospace;
+}
+.file-info.loaded { color: #4ecca3; }
+.file-info.error { color: #e94560; }
+.file-info .addr { color: #ffd700; }
+.btn-merge {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #00d4ff, #0f3460);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 3px;
+  transition: all 0.3s;
+  margin-bottom: 16px;
+}
+.btn-merge:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,212,255,0.4);
+}
+.btn-merge:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.result {
+  background: #0d1b2a;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: "Consolas", monospace;
+  font-size: 13px;
+  min-height: 80px;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid #1a1a4e;
+}
+.result.success { border-color: #4ecca3; color: #4ecca3; }
+.result.error { border-color: #e94560; color: #e94560; }
+.result.info { color: #aaa; }
+.drag-zone {
+  border: 2px dashed #333;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+.drag-zone:hover, .drag-zone.dragover {
+  border-color: #00d4ff;
+  background: rgba(0,212,255,0.05);
+}
+.drag-zone .icon { font-size: 28px; margin-bottom: 8px; }
+.drag-zone .text { font-size: 13px; color: #888; }
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-left: 8px;
+}
+.status-badge.ok { background: #4ecca3; color: #0d1b2a; }
+.status-badge.fail { background: #e94560; color: #fff; }
+.footer {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #555;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>JT004 HEX 合并工具</h1>
+
+  <!-- Bootloader -->
+  <div class="section">
+    <div class="section-title">
+      Bootloader HEX
+      <span class="status-badge" id="boot-status" style="display:none"></span>
+    </div>
+    <div class="file-row">
+      <input type="text" id="boot-name" placeholder="选择或拖入 Bootloader .hex 文件" readonly>
+      <button class="btn-browse" onclick="document.getElementById('boot-file').click()">浏览</button>
+      <input type="file" id="boot-file" accept=".hex" style="display:none" onchange="onFileSelect('boot', this.files[0])">
+    </div>
+    <div class="file-info" id="boot-info">未加载</div>
+  </div>
+
+  <!-- APP -->
+  <div class="section">
+    <div class="section-title">
+      APP HEX
+      <span class="status-badge" id="app-status" style="display:none"></span>
+    </div>
+    <div class="file-row">
+      <input type="text" id="app-name" placeholder="选择或拖入 APP .hex 文件" readonly>
+      <button class="btn-browse" onclick="document.getElementById('app-file').click()">浏览</button>
+      <input type="file" id="app-file" accept=".hex" style="display:none" onchange="onFileSelect('app', this.files[0])">
+    </div>
+    <div class="file-info" id="app-info">未加载</div>
+  </div>
+
+  <!-- 合并按钮 -->
+  <button class="btn-merge" id="merge-btn" onclick="doMerge()" disabled>合并</button>
+
+  <!-- 结果 -->
+  <div class="result info" id="result">请加载两个 HEX 文件后点击合并</div>
+
+  <div class="footer">Intel HEX 格式 · 地址冲突自动检测 · 本地运行不上传文件</div>
+</div>
+
+<script>
+let bootData = null; // {lines, minAddr, maxAddr, totalBytes, segments}
+let appData = null;
+
+// ── HEX 解析 ──────────────────────────────────────
+
+function parseHexLine(line) {
+  line = line.trim();
+  if (!line.startsWith(":")) return null;
+  const hex = line.substring(1);
+  const raw = [];
+  for (let i = 0; i < hex.length; i += 2) {
+    raw.push(parseInt(hex.substring(i, i + 2), 16));
+  }
+  if (raw.length < 5) return null;
+  const byteCount = raw[0];
+  const addr = (raw[1] << 8) | raw[2];
+  const rectype = raw[3];
+  const data = raw.slice(4, 4 + byteCount);
+  return { byteCount, addr, rectype, data };
+}
+
+function analyzeHex(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  let baseAddr = 0;
+  let minAddr = null, maxAddr = null, totalBytes = 0;
+  const segments = [];
+  const allLines = [];
+
+  for (const line of lines) {
+    const parsed = parseHexLine(line);
+    if (!parsed) continue;
+    allLines.push(line.trim());
+
+    if (parsed.rectype === 0x04) {
+      baseAddr = ((parsed.data[0] << 8) | parsed.data[1]) << 16;
+    } else if (parsed.rectype === 0x00) {
+      const fullAddr = baseAddr + parsed.addr;
+      const endAddr = fullAddr + parsed.byteCount;
+      if (minAddr === null || fullAddr < minAddr) minAddr = fullAddr;
+      if (maxAddr === null || endAddr > maxAddr) maxAddr = endAddr;
+      totalBytes += parsed.byteCount;
+      segments.push([fullAddr, endAddr]);
+    }
+  }
+
+  if (minAddr === null) return { error: "HEX 文件无数据记录" };
+  return { lines: allLines, minAddr, maxAddr, totalBytes, segments, lineCount: allLines.length, error: null };
+}
+
+function checkOverlap(s1, s2) {
+  for (const [a1, b1] of s1) {
+    for (const [a2, b2] of s2) {
+      if (a1 < b2 && a2 < b1) {
+        return { overlap: true, msg: `地址重叠!\n  文件1: 0x${a1.toString(16).toUpperCase().padStart(8,'0')} ~ 0x${b1.toString(16).toUpperCase().padStart(8,'0')}\n  文件2: 0x${a2.toString(16).toUpperCase().padStart(8,'0')} ~ 0x${b2.toString(16).toUpperCase().padStart(8,'0')}` };
+      }
+    }
+  }
+  return { overlap: false };
+}
+
+function addrStr(addr) {
+  return "0x" + addr.toString(16).toUpperCase().padStart(8, '0');
+}
+
+// ── 文件加载 ──────────────────────────────────────
+
+function onFileSelect(target, file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const info = analyzeHex(text);
+    if (info.error) {
+      document.getElementById(target + "-info").textContent = info.error;
+      document.getElementById(target + "-info").className = "file-info error";
+      document.getElementById(target + "-status").style.display = "none";
+      if (target === "boot") bootData = null;
+      else appData = null;
+    } else {
+      document.getElementById(target + "-name").value = file.name;
+      const infoText = `地址: ${addrStr(info.minAddr)} ~ ${addrStr(info.maxAddr)}  | ${info.totalBytes} 字节  | ${info.lineCount} 行`;
+      const el = document.getElementById(target + "-info");
+      el.innerHTML = infoText;
+      el.className = "file-info loaded";
+      const badge = document.getElementById(target + "-status");
+      badge.textContent = "已加载";
+      badge.className = "status-badge ok";
+      badge.style.display = "inline-block";
+      if (target === "boot") bootData = info;
+      else appData = info;
+    }
+    updateMergeBtn();
+  };
+  reader.readAsText(file);
+}
+
+function updateMergeBtn() {
+  const btn = document.getElementById("merge-btn");
+  if (bootData && appData) {
+    btn.disabled = false;
+  } else {
+    btn.disabled = true;
+  }
+}
+
+// ── 合并 ──────────────────────────────────────────
+
+function doMerge() {
+  const resultEl = document.getElementById("result");
+
+  if (!bootData || !appData) {
+    resultEl.textContent = "请先加载两个 HEX 文件";
+    resultEl.className = "result error";
+    return;
+  }
+
+  // 检查地址冲突
+  const overlap = checkOverlap(bootData.segments, appData.segments);
+  if (overlap.overlap) {
+    resultEl.textContent = overlap.msg;
+    resultEl.className = "result error";
+    return;
+  }
+
+  // 合并: Bootloader全部行(去掉末尾EOF) + APP全部行(保留EOF)
+  let bootLines = [...bootData.lines];
+  while (bootLines.length > 0 && bootLines[bootLines.length - 1] === ":00000001FF") {
+    bootLines.pop();
+  }
+  const merged = bootLines.concat(appData.lines);
+  const mergedText = merged.join("\n") + "\n";
+
+  // 下载
+  const blob = new Blob([mergedText], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const bootName = document.getElementById("boot-name").value.replace(/\.hex$/i, "");
+  const appName = document.getElementById("app-name").value.replace(/\.hex$/i, "");
+  a.href = url;
+  a.download = "merged.hex";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const totalBytes = bootData.totalBytes + appData.totalBytes;
+  const msg = `合并成功!\n\nBootloader: ${addrStr(bootData.minAddr)} ~ ${addrStr(bootData.maxAddr)} (${bootData.totalBytes} 字节)\nAPP:         ${addrStr(appData.minAddr)} ~ ${addrStr(appData.maxAddr)} (${appData.totalBytes} 字节)\n合计:        ${totalBytes} 字节\n行数:        ${merged.length}\n\n文件已下载: merged.hex`;
+  resultEl.textContent = msg;
+  resultEl.className = "result success";
+}
+
+// ── 拖拽支持 ──────────────────────────────────────
+
+document.querySelectorAll(".section").forEach((section, index) => {
+  const target = index === 0 ? "boot" : "app";
+  section.addEventListener("dragover", function(e) {
+    e.preventDefault();
+    this.style.borderColor = "#00d4ff";
+  });
+  section.addEventListener("dragleave", function(e) {
+    this.style.borderColor = "#1a1a4e";
+  });
+  section.addEventListener("drop", function(e) {
+    e.preventDefault();
+    this.style.borderColor = "#1a1a4e";
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith(".hex")) {
+      onFileSelect(target, file);
+    }
+  });
+});
+</script>
+</body>
+</html>

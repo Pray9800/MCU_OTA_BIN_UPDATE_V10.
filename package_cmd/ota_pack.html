@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JT004 OTA 打包工具</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 30px 20px;
+}
+.container {
+  width: 100%;
+  max-width: 680px;
+  background: #16213e;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+h1 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 25px;
+  color: #00d4ff;
+  letter-spacing: 2px;
+}
+.section {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 16px;
+  border: 1px solid #1a1a4e;
+}
+.section-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #00d4ff;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  background: #00d4ff;
+  border-radius: 2px;
+}
+.file-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.file-row input[type="text"] {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1a1a3e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+}
+.file-row input[type="text"]:focus {
+  border-color: #00d4ff;
+}
+.file-row input[type="text"]:read-only {
+  cursor: default;
+}
+.btn-browse {
+  padding: 8px 16px;
+  background: #0f3460;
+  border: 1px solid #00d4ff;
+  border-radius: 6px;
+  color: #00d4ff;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-browse:hover {
+  background: #00d4ff;
+  color: #16213e;
+}
+.file-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+  font-family: "Consolas", monospace;
+}
+.file-info.loaded { color: #4ecca3; }
+.file-info.error { color: #e94560; }
+.param-row { margin-bottom: 14px; }
+.param-row:last-child { margin-bottom: 0; }
+.param-label {
+  display: block;
+  font-size: 12px;
+  color: #8899bb;
+  margin-bottom: 6px;
+}
+.param-row input[type="text"] {
+  width: 100%;
+  padding: 9px 12px;
+  background: #1a1a3e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 16px;
+  font-family: "Consolas", monospace;
+  letter-spacing: 4px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.param-row input[type="text"]:focus { border-color: #00d4ff; }
+.hint {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #8899bb;
+}
+.hint.ok { color: #4ecca3; }
+.hint.err { color: #e94560; }
+.btn-merge {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #00d4ff, #0f3460);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 3px;
+  transition: all 0.3s;
+  margin-bottom: 16px;
+}
+.btn-merge:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,212,255,0.4);
+}
+.btn-merge:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.result {
+  background: #0d1b2a;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: "Consolas", monospace;
+  font-size: 13px;
+  min-height: 80px;
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid #1a1a4e;
+}
+.result.success { border-color: #4ecca3; color: #4ecca3; }
+.result.error { border-color: #e94560; color: #e94560; }
+.result.info { color: #aaa; }
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-left: 8px;
+}
+.status-badge.ok { background: #4ecca3; color: #0d1b2a; }
+.status-badge.fail { background: #e94560; color: #fff; }
+.footer {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #555;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>JT004 OTA 打包工具</h1>
+
+  <!-- 固件BIN -->
+  <div class="section" id="sec-bin">
+    <div class="section-title">
+      固件 BIN（编译产物）
+      <span class="status-badge" id="bin-status" style="display:none"></span>
+    </div>
+    <div class="file-row">
+      <input type="text" id="bin-name" placeholder="选择或拖入 .bin 文件" readonly>
+      <button class="btn-browse" onclick="document.getElementById('bin-file').click()">浏览</button>
+      <input type="file" id="bin-file" accept=".bin" style="display:none" onchange="onBinSelect(this.files[0])">
+    </div>
+    <div class="file-info" id="bin-info">未加载 · 必须是 OTA 版工程编译的 bin（链接地址 0x08008000）</div>
+  </div>
+
+  <!-- 打包参数 -->
+  <div class="section">
+    <div class="section-title">包头参数（16字节包头前两项）</div>
+    <div class="param-row">
+      <label class="param-label" for="magic-input">Magic 标识</label>
+      <input type="text" id="magic-input" value="JJST" maxlength="4" spellcheck="false" oninput="validateParams()">
+      <div class="hint" id="magic-hint">必须正好 4 个 ASCII 字符，不多不少（如 JJST）</div>
+    </div>
+    <div class="param-row">
+      <label class="param-label" for="version-input">固件版本</label>
+      <input type="text" id="version-input" value="0102" maxlength="6" spellcheck="false" oninput="validateParams()">
+      <div class="hint" id="version-hint">最多 4 位十六进制 = 2 字节，可写 0102 或 0x0102</div>
+    </div>
+  </div>
+
+  <!-- 打包按钮 -->
+  <button class="btn-merge" id="pack-btn" onclick="doPack()" disabled>生成 upgrade.bin</button>
+
+  <!-- 结果 -->
+  <div class="result info" id="result">加载固件 bin → 确认参数 → 点击生成
+
+包头格式 (与 Bootloader OTA_Header_t 逐字节对齐):
+  [0]  Magic    4B  ASCII 小端
+  [4]  Version  2B  小端
+  [6]  Size     4B  小端 = bin字节数
+  [10] CRC16    2B  Modbus, 只算bin正文
+  [12] Reserved 4B  填0</div>
+
+  <!-- 升级包体检 -->
+  <div class="section" id="sec-inspect">
+    <div class="section-title">升级包体检（可选 · 检查已打好的 upgrade.bin）</div>
+    <div class="file-row">
+      <input type="text" id="insp-name" placeholder="选择或拖入 upgrade.bin 验证格式" readonly>
+      <button class="btn-browse" onclick="document.getElementById('insp-file').click()">浏览</button>
+      <input type="file" id="insp-file" accept=".bin" style="display:none" onchange="onInspectSelect(this.files[0])">
+    </div>
+    <div class="file-info" id="insp-info">未加载</div>
+  </div>
+
+  <div class="footer">CRC16-Modbus 自检: <span id="selftest">...</span> · 复位向量镜像体检 · 本地运行不上传文件</div>
+</div>
+
+<script>
+const APP_BASE = 0x08008000, APP_END = 0x08044000;
+const MAX_SIZE = 238 * 1024; // 下载区上限 0x0807F800 - 0x08044000
+
+let binData = null;   // Uint8Array 原始bin
+let binCheck = null;  // 镜像体检结果
+
+// ── CRC16 Modbus (与 bsp_crc.c 一致: 初值0xFFFF, 多项式0xA001) ──
+function crc16Modbus(data) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i];
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);
+    }
+  }
+  return crc & 0xFFFF;
+}
+
+// 标准校验向量: CRC-16/MODBUS("123456789") = 0x4B37
+window.addEventListener('load', function () {
+  const ok = crc16Modbus(new TextEncoder().encode("123456789")) === 0x4B37;
+  const el = document.getElementById("selftest");
+  el.textContent = ok ? "PASS" : "FAIL";
+  el.style.color = ok ? "#4ecca3" : "#e94560";
+});
+
+function hex(n, w) { return "0x" + n.toString(16).toUpperCase().padStart(w, '0'); }
+function hexBytes(arr) {
+  return Array.from(arr).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(' ').toUpperCase();
+}
+
+// ── 镜像体检 (与 ota_pack.py 一致) ──
+function checkImage(bin) {
+  if (bin.length === 0) return { ok: false, msg: "输入文件为空" };
+  if (bin.length > MAX_SIZE) return { ok: false, msg: "固件 " + bin.length + " 字节超过下载区上限 " + MAX_SIZE + " 字节" };
+  const dv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+  const sp = dv.getUint32(0, true);
+  const reset = dv.getUint32(4, true);
+  if (!(reset >= APP_BASE && reset < APP_END)) {
+    return { ok: false, msg: "拒绝: 复位向量 " + hex(reset, 8) + " 不在 APP 区 [0x08008000, 0x08043FFF] —— 这是按 0x08000000 链接的标准版固件，烧进去必死机" };
+  }
+  if (!(sp >= 0x20000000 && sp <= 0x20010000)) {
+    return { ok: false, msg: "拒绝: 栈顶指针 " + hex(sp, 8) + " 不在 64KB RAM 范围" };
+  }
+  return { ok: true, sp: sp, reset: reset };
+}
+
+// ── 参数解析 ──
+function parseMagic() {
+  const s = document.getElementById("magic-input").value;
+  if (s.length !== 4) return { ok: false, err: "必须正好 4 个字符，当前 " + s.length + " 个" };
+  for (let i = 0; i < 4; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x20 || c > 0x7E) return { ok: false, err: "仅限 ASCII 可打印字符" };
+  }
+  return { ok: true, val: s };
+}
+
+function parseVersion() {
+  let s = document.getElementById("version-input").value.trim().toLowerCase();
+  if (s.startsWith("0x")) s = s.slice(2);
+  if (!/^[0-9a-f]{1,4}$/.test(s)) return { ok: false, err: "仅 1~4 位十六进制字符 (0-9 / A-F)" };
+  return { ok: true, val: parseInt(s, 16) };
+}
+
+function setHint(id, rule, parsed) {
+  const el = document.getElementById(id);
+  if (parsed.ok) { el.className = "hint ok"; el.textContent = rule + " · 有效"; }
+  else { el.className = "hint err"; el.textContent = parsed.err; }
+}
+
+function validateParams() {
+  const m = parseMagic();
+  const v = parseVersion();
+  setHint("magic-hint", "必须正好 4 个 ASCII 字符", m);
+  setHint("version-hint", "最多 4 位十六进制 = 2 字节", v);
+  const btn = document.getElementById("pack-btn");
+  btn.disabled = !(binData && binCheck && binCheck.ok && m.ok && v.ok);
+}
+
+// ── 固件加载 ──
+function onBinSelect(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    binData = new Uint8Array(e.target.result);
+    binCheck = checkImage(binData);
+    document.getElementById("bin-name").value = file.name;
+    const el = document.getElementById("bin-info");
+    const badge = document.getElementById("bin-status");
+    if (binCheck.ok) {
+      el.className = "file-info loaded";
+      el.innerHTML = "大小: " + binData.length + " 字节 | 栈顶: " + hex(binCheck.sp, 8) +
+                     " | 复位向量: " + hex(binCheck.reset, 8) + " | 镜像体检: 通过 (APP区有效)";
+      badge.textContent = "体检通过";
+      badge.className = "status-badge ok";
+      badge.style.display = "inline-block";
+    } else {
+      binData = null;
+      el.className = "file-info error";
+      el.textContent = binCheck.msg;
+      badge.textContent = "体检失败";
+      badge.className = "status-badge fail";
+      badge.style.display = "inline-block";
+    }
+    validateParams();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 打包 ──
+function buildHeader(magicStr, version, size, crc) {
+  const h = new Uint8Array(16);
+  for (let i = 0; i < 4; i++) h[i] = magicStr.charCodeAt(i); // magic: 4字符按文件序直写
+  h[4] = version & 0xFF;  h[5] = (version >> 8) & 0xFF;      // version: 小端
+  h[6] = size & 0xFF;     h[7] = (size >> 8) & 0xFF;         // file_size: 小端
+  h[8] = (size >> 16) & 0xFF; h[9] = (size >> 24) & 0xFF;
+  h[10] = crc & 0xFF;     h[11] = (crc >> 8) & 0xFF;         // crc16: 小端
+  h[12] = 0; h[13] = 0; h[14] = 0; h[15] = 0;                // reserved: 0
+  return h;
+}
+
+function doPack() {
+  const m = parseMagic(), v = parseVersion();
+  if (!m.ok || !v.ok || !binData || !binCheck.ok) return;
+
+  const crc = crc16Modbus(binData);
+  const header = buildHeader(m.val, v.val, binData.length, crc);
+  const blob = new Blob([header, binData], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "upgrade.bin";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const resultEl = document.getElementById("result");
+  resultEl.className = "result success";
+  resultEl.textContent =
+    "打包成功! 已下载 upgrade.bin\n\n" +
+    "输入   : " + document.getElementById("bin-name").value + " (" + binData.length + " 字节)\n" +
+    "Magic  : " + m.val + "\n" +
+    "版本   : " + hex(v.val, 4) + "\n" +
+    "CRC16  : " + hex(crc, 4) + "\n" +
+    "输出   : upgrade.bin (" + (binData.length + 16) + " 字节)\n\n" +
+    "包头16字节: " + hexBytes(header) + "\n\n" +
+    "发送流程: UPDATE_FIRMWARE -> 等 READY! -> 二进制模式发送此文件";
+}
+
+// ── 升级包体检 (对应 ota_pack.py --inspect) ──
+function inspectPackage(pkg) {
+  if (pkg.length < 16) return { ok: false, msg: "文件不足16字节，缺少完整包头" };
+  const dv = new DataView(pkg.buffer, pkg.byteOffset, pkg.byteLength);
+  const magicStr = String.fromCharCode(pkg[0], pkg[1], pkg[2], pkg[3]);
+  const version = dv.getUint16(4, true);
+  const fileSize = dv.getUint32(6, true);
+  const storedCrc = dv.getUint16(10, true);
+  const reserved = dv.getUint32(12, true);
+  const expectMagic = document.getElementById("magic-input").value;
+  const payload = pkg.slice(16);
+
+  if (magicStr !== expectMagic) return { ok: false, msg: "Magic 不匹配: 包内 \"" + magicStr + "\" != 预期 \"" + expectMagic + "\"" };
+  if (reserved !== 0) return { ok: false, msg: "reserved 不为 0 (" + hex(reserved, 8) + ")" };
+  if (fileSize !== payload.length) return { ok: false, msg: "长度字段 " + fileSize + " != 实际正文 " + payload.length + " 字节" };
+  if (fileSize === 0 || fileSize > MAX_SIZE) return { ok: false, msg: "固件大小 " + fileSize + " 超出有效范围" };
+
+  const calc = crc16Modbus(payload);
+  if (calc !== storedCrc) return { ok: false, msg: "CRC 不匹配: 包内 " + hex(storedCrc, 4) + " != 计算 " + hex(calc, 4) };
+  return { ok: true, magic: magicStr, version: version, fileSize: fileSize, crc: storedCrc };
+}
+
+function onInspectSelect(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const pkg = new Uint8Array(e.target.result);
+    document.getElementById("insp-name").value = file.name;
+    const el = document.getElementById("insp-info");
+    const r = inspectPackage(pkg);
+    if (r.ok) {
+      el.className = "file-info loaded";
+      el.innerHTML = "Magic: " + r.magic + " | 版本: " + hex(r.version, 4) + " | 大小: " + r.fileSize +
+                     " 字节 | CRC16: " + hex(r.crc, 4) + " | 格式校验: 通过";
+    } else {
+      el.className = "file-info error";
+      el.textContent = r.msg;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 拖拽支持 ──
+function bindDrop(sectionId, handler) {
+  const sec = document.getElementById(sectionId);
+  sec.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    sec.style.borderColor = "#00d4ff";
+  });
+  sec.addEventListener("dragleave", function () {
+    sec.style.borderColor = "#1a1a4e";
+  });
+  sec.addEventListener("drop", function (e) {
+    e.preventDefault();
+    sec.style.borderColor = "#1a1a4e";
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith(".bin")) handler(file);
+  });
+}
+bindDrop("sec-bin", onBinSelect);
+bindDrop("sec-inspect", onInspectSelect);
+validateParams();
+</script>
+</body>
+</html>
